@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:novindus/features/auth/pages/booking_list_screen.dart';
 import 'package:novindus/features/auth/pages/login_screen.dart';
 import 'package:novindus/features/auth/pages/register_screen.dart';
 import 'package:novindus/features/auth/pages/splash_screen.dart';
@@ -36,7 +37,8 @@ class MyApp extends StatelessWidget {
       routes: {
           '/': (context) => const SplashScreen(),
           '/login':(context) => const LoginScreen(),
-          '/register':(context)=>  RegisterScreen()
+          '/register':(context)=>  RegisterScreen(),
+          '/booking':(context) => BookingListScreen(),
       },
     );
   }
