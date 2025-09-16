@@ -2,6 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:novindus/core/constants/helpers.dart';
 import 'package:novindus/core/widgets/CustomButton.dart';
 import 'package:novindus/core/widgets/CustomTextField.dart';
+import 'package:provider/provider.dart';
+import 'package:novindus/providers/branch_provider.dart';
+import 'package:novindus/providers/treatment_provider.dart';
+import 'package:novindus/providers/auth_provider.dart';
 
 class RegisterScreen extends StatefulWidget {
   @override
@@ -18,6 +22,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Fetch branches and treatments on first build
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+      final branchProvider = Provider.of<BranchProvider>(context, listen: false);
+      final treatmentProvider = Provider.of<TreatmentProvider>(context, listen: false);
+      if (authProvider.token != null) {
+        if (branchProvider.branches.isEmpty) branchProvider.fetchBranches(authProvider.token!);
+        if (treatmentProvider.treatments.isEmpty) treatmentProvider.fetchTreatments(authProvider.token!);
+      }
+    });
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Colors.white,
@@ -55,7 +69,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Header Section
               Padding(
                 padding: const EdgeInsets.only(left: 20),
                 child: Row(
@@ -83,7 +96,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
               ),
               SizedBox(height: 20),
 
-              // Form Fields
               Padding(
                 padding: EdgeInsets.only(
                   left: ResponsiveHelper.getScreenWidth(context) * 0.050,
@@ -122,7 +134,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 ),
               ),
               
-              // Location Dropdown
               Padding(
                 padding: EdgeInsets.only(
                   left: ResponsiveHelper.getScreenWidth(context) * 0.050,
@@ -171,7 +182,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
               ),
               SizedBox(height: 16),
               
-              // Branch Dropdown
               Padding(
                 padding: EdgeInsets.only(
                   left: ResponsiveHelper.getScreenWidth(context) * 0.050,
@@ -189,9 +199,57 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       ),
                     ),
                     SizedBox(height: 8),
-                    DropdownButtonFormField<String>(
+                    Consumer<BranchProvider>(
+                      builder: (context, branchProvider, _) {
+                        if (branchProvider.isLoading) {
+                          return Center(child: CircularProgressIndicator());
+                        }
+                        return DropdownButtonFormField<String>(
+                          decoration: InputDecoration(
+                            hintText: 'Select the branch',
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide: BorderSide(color: Colors.grey.shade300)
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide: BorderSide(color: Color(0xFF006837))
+                            ),
+                            contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 16)
+                          ),
+                          icon: Icon(Icons.keyboard_arrow_down, color: Color(0xFF006837)),
+                          items: branchProvider.branches.map((branch) {
+                            return DropdownMenuItem<String>(
+                              value: branch.id,
+                              child: Text(branch.name, style: TextStyle(color: Color(0xFF404040)))
+                            );
+                          }).toList(),
+                          onChanged: (value) {
+                            setState(() {
+                              _branch = value;
+                            });
+                          },
+                        );
+                      },
+                    ),
+                  ],
+                ),
+              ),
+              SizedBox(height: 20),
+
+              Padding(
+                padding: EdgeInsets.only(
+                  left: ResponsiveHelper.getScreenWidth(context) * 0.050,
+                  right: ResponsiveHelper.getScreenWidth(context) * 0.050 
+                ),
+                child: Consumer<TreatmentProvider>(
+                  builder: (context, treatmentProvider, _) {
+                    if (treatmentProvider.isLoading) {
+                      return Center(child: CircularProgressIndicator());
+                    }
+                    return DropdownButtonFormField<String>(
                       decoration: InputDecoration(
-                        hintText: 'Select the branch',
+                        hintText: 'Select treatment',
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(8),
                           borderSide: BorderSide(color: Colors.grey.shade300)
@@ -203,171 +261,23 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 16)
                       ),
                       icon: Icon(Icons.keyboard_arrow_down, color: Color(0xFF006837)),
-                      items: ['Branch 1', 'Branch 2', 'Branch 3'].map((String value) {
+                      items: treatmentProvider.treatments.map((treatment) {
                         return DropdownMenuItem<String>(
-                          value: value, 
-                          child: Text(value, style: TextStyle(color: Color(0xFF404040)))
+                          value: treatment.id,
+                          child: Text(treatment.name, style: TextStyle(color: Color(0xFF404040)))
                         );
                       }).toList(),
                       onChanged: (value) {
                         setState(() {
-                          _branch = value;
+                          _treatment = value;
                         });
                       },
-                    ),
-                  ],
-                ),
-              ),
-              SizedBox(height: 20),
-
-              // Treatments Section
-              Padding(
-                padding: EdgeInsets.only(
-                  left: ResponsiveHelper.getScreenWidth(context) * 0.050,
-                  right: ResponsiveHelper.getScreenWidth(context) * 0.050 
-                ),
-                child: Text(
-                  'Treatments', 
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF404040),
-                    fontSize: 16
-                  )
-                ),
-              ),
-              SizedBox(height: 12),
-              
-              // Treatment Item Container
-              Padding(
-                padding: EdgeInsets.only(
-                  left: ResponsiveHelper.getScreenWidth(context) * 0.050,
-                  right: ResponsiveHelper.getScreenWidth(context) * 0.050 
-                ),
-                child: Container(
-                  padding: EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    border: Border.all(color: Colors.grey.shade300),
-                    borderRadius: BorderRadius.circular(8)
-                  ),
-                  child: Column(
-                    children: [
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              '1. Couple Combo package i..',
-                              style: TextStyle(color: Color(0xFF404040))
-                            )
-                          ),
-                          Row(
-                            children: [
-                              IconButton(
-                                icon: Icon(Icons.edit, color: Color(0xFF404040)),
-                                onPressed: () {},
-                              ),
-                              IconButton(
-                                icon: Icon(Icons.close, color: Colors.red), 
-                                onPressed: () {}
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                      SizedBox(height: 12),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          // Male Counter
-                          Container(
-                            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                            decoration: BoxDecoration(
-                              color: Color(0xFF006837),
-                              borderRadius: BorderRadius.circular(6)
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text('Male', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w500)),
-                                SizedBox(width: 12),
-                                Text(_maleCount.toString(), style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                              ],
-                            ),
-                          ),
-                          SizedBox(width: 16),
-                          // Female Counter
-                          Container(
-                            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                            decoration: BoxDecoration(
-                              color: Color(0xFF006837),
-                              borderRadius: BorderRadius.circular(6)
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text('Female', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w500)),
-                                SizedBox(width: 12),
-                                Text(_femaleCount.toString(), style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                      SizedBox(height: 16),
-                      // Counter Controls
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                        children: [
-                          Row(
-                            children: [
-                              IconButton(
-                                icon: Icon(Icons.remove_circle, color: Color(0xFF006837)), 
-                                onPressed: () { 
-                                  setState(() { 
-                                    if (_maleCount > 0) _maleCount--; 
-                                  }); 
-                                }
-                              ),
-                              Text('Male', style: TextStyle(color: Color(0xFF404040))),
-                              IconButton(
-                                icon: Icon(Icons.add_circle, color: Color(0xFF006837)), 
-                                onPressed: () { 
-                                  setState(() { 
-                                    _maleCount++; 
-                                  }); 
-                                }
-                              ),
-                            ],
-                          ),
-                          Row(
-                            children: [
-                              IconButton(
-                                icon: Icon(Icons.remove_circle, color: Color(0xFF006837)), 
-                                onPressed: () { 
-                                  setState(() { 
-                                    if (_femaleCount > 0) _femaleCount--; 
-                                  }); 
-                                }
-                              ),
-                              Text('Female', style: TextStyle(color: Color(0xFF404040))),
-                              IconButton(
-                                icon: Icon(Icons.add_circle, color: Color(0xFF006837)), 
-                                onPressed: () { 
-                                  setState(() { 
-                                    _femaleCount++; 
-                                  }); 
-                                }
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
+                    );
+                  },
                 ),
               ),
               SizedBox(height: 16),
               
-              // Add Treatments Button
               Padding(
                 padding: EdgeInsets.only(
                   left: ResponsiveHelper.getScreenWidth(context) * 0.050,
@@ -382,7 +292,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
               ),
               SizedBox(height: 20),
 
-              // Financial Fields
               Padding(
                 padding: EdgeInsets.only(
                   left: ResponsiveHelper.getScreenWidth(context) * 0.050,
@@ -410,7 +319,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
               ),
               SizedBox(height: 16),
 
-              // Payment Options
               Padding(
                 padding: EdgeInsets.only(
                   left: ResponsiveHelper.getScreenWidth(context) * 0.050,
@@ -470,7 +378,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
               ),
               SizedBox(height: 16),
 
-              // Amount Fields
               Padding(
                 padding: EdgeInsets.only(
                   left: ResponsiveHelper.getScreenWidth(context) * 0.050,
@@ -497,7 +404,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 ),
               ),
 
-              // Treatment Date
               Padding(
                 padding: EdgeInsets.only(
                   left: ResponsiveHelper.getScreenWidth(context) * 0.050,
@@ -534,7 +440,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 ),
               ),
 
-              // Treatment Time
               Padding(
                 padding: EdgeInsets.only(
                   left: ResponsiveHelper.getScreenWidth(context) * 0.050,
@@ -634,7 +539,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
               ),
               SizedBox(height: 30),
 
-              // Save Button
               Padding(
                 padding: EdgeInsets.only(
                   left: ResponsiveHelper.getScreenWidth(context) * 0.050,
@@ -644,7 +548,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   text: 'Save', 
                   onPressed: () {
                     if (_formKey.currentState!.validate()) {
-                      // Handle form submission
                       print('Form submitted successfully!');
                     }
                   }, 

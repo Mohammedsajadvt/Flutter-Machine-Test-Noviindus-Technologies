@@ -4,7 +4,6 @@ import 'package:novindus/screens/booking_list_screen.dart';
 import 'package:novindus/screens/login_screen.dart';
 import 'package:novindus/screens/register_screen.dart';
 import 'package:novindus/screens/splash_screen.dart';
-// import 'package:novindus/services/auth_service.dart';
 import 'package:novindus/providers/auth_provider.dart';
 import 'package:novindus/providers/patient_provider.dart';
 import 'package:novindus/providers/branch_provider.dart';
@@ -17,7 +16,6 @@ void main() {
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
-  // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
     return MultiProvider(
@@ -31,7 +29,7 @@ class MyApp extends StatelessWidget {
         title: 'Flutter Demo',
         debugShowCheckedModeBanner: false,
         theme: ThemeData(
-          primaryColor: const Color(0xFF006837), // Your app color
+          primaryColor: const Color(0xFF006837),
           scaffoldBackgroundColor: Colors.white,
           appBarTheme: const AppBarTheme(
             backgroundColor: Color(0xFF006837),

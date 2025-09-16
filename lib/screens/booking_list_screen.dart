@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:novindus/core/constants/helpers.dart';
 import 'package:novindus/core/widgets/CustomButton.dart';
 import 'package:novindus/core/widgets/CustomTextField.dart';
+import 'package:provider/provider.dart';
+import 'package:novindus/providers/patient_provider.dart';
+import 'package:novindus/providers/auth_provider.dart';
 
 class BookingListScreen extends StatefulWidget {
   @override
@@ -10,6 +13,23 @@ class BookingListScreen extends StatefulWidget {
 
 class _BookingListScreenState extends State<BookingListScreen> {
   String _sortBy = 'Date';
+  String _searchQuery = '';
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _fetchPatients();
+    });
+  }
+
+  Future<void> _fetchPatients() async {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final patientProvider = Provider.of<PatientProvider>(context, listen: false);
+    if (authProvider.token != null) {
+      await patientProvider.fetchPatients(authProvider.token!);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -31,13 +51,11 @@ class _BookingListScreenState extends State<BookingListScreen> {
       ),
       body: Column(
         children: [
-          // Search and Sort Section
           Container(
             color: Colors.white,
             padding: EdgeInsets.all(ResponsiveHelper.getScreenWidth(context) * 0.04),
             child: Column(
               children: [
-                // Search Bar with Search Button
                 Row(
                   children: [
                     Expanded(
@@ -48,6 +66,11 @@ class _BookingListScreenState extends State<BookingListScreen> {
                           borderRadius: BorderRadius.circular(ResponsiveHelper.getScreenWidth(context) * 0.02),
                         ),
                         child: TextField(
+                          onChanged: (value) {
+                            setState(() {
+                              _searchQuery = value;
+                            });
+                          },
                           decoration: InputDecoration(
                             hintText: 'Search for treatments',
                             hintStyle: TextStyle(
@@ -72,7 +95,9 @@ class _BookingListScreenState extends State<BookingListScreen> {
                         borderRadius: BorderRadius.circular(ResponsiveHelper.getScreenWidth(context) * 0.02),
                       ),
                       child: MaterialButton(
-                        onPressed: () {},
+                        onPressed: () {
+                          setState(() {});
+                        },
                         child: Icon(
                           Icons.search,
                           color: Colors.white,
@@ -83,7 +108,6 @@ class _BookingListScreenState extends State<BookingListScreen> {
                   ],
                 ),
                 SizedBox(height: ResponsiveHelper.getScreenHeight(context) * 0.02),
-                // Sort By Section
                 Row(
                   children: [
                     Text(
@@ -133,24 +157,41 @@ class _BookingListScreenState extends State<BookingListScreen> {
               ],
             ),
           ),
-          // Booking List
           Expanded(
-            child: ListView.builder(
-              padding: EdgeInsets.all(ResponsiveHelper.getScreenWidth(context) * 0.04),
-              itemCount: 3,
-              itemBuilder: (context, index) {
-                return _buildBookingItem(
-                  context,
-                  index + 1,
-                  'Vikram Singh',
-                  'Couple Combo Package (Rejuven...',
-                  index == 0 ? '31/01/2024' : '31/01/2024',
-                  'Jithesh',
+            child: Consumer<PatientProvider>(
+              builder: (context, patientProvider, _) {
+                if (patientProvider.isLoading) {
+                  return Center(child: CircularProgressIndicator());
+                }
+                List filtered = patientProvider.patients.where((p) {
+                  final name = p.name.toLowerCase();
+                  final treatment = p.treatments.join(', ').toLowerCase();
+                  return name.contains(_searchQuery.toLowerCase()) || treatment.contains(_searchQuery.toLowerCase());
+                }).toList();
+                if (filtered.isEmpty) {
+                  return Center(child: Text('No bookings found.'));
+                }
+                return RefreshIndicator(
+                  onRefresh: _fetchPatients,
+                  child: ListView.builder(
+                    padding: EdgeInsets.all(ResponsiveHelper.getScreenWidth(context) * 0.04),
+                    itemCount: filtered.length,
+                    itemBuilder: (context, index) {
+                      final patient = filtered[index];
+                      return _buildBookingItem(
+                        context,
+                        index + 1,
+                        patient.name,
+                        patient.treatments.isNotEmpty ? patient.treatments.join(', ') : '-',
+                        patient.dateNdTime,
+                        patient.excecutive,
+                      );
+                    },
+                  ),
                 );
               },
             ),
           ),
-          // Register Now Button
           Container(
             width: double.infinity,
             padding: EdgeInsets.all(ResponsiveHelper.getScreenWidth(context) * 0.04),
@@ -202,7 +243,6 @@ class _BookingListScreenState extends State<BookingListScreen> {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Index Number
             Text(
               '$index.',
               style: TextStyle(
@@ -212,12 +252,10 @@ class _BookingListScreenState extends State<BookingListScreen> {
               ),
             ),
             SizedBox(width: ResponsiveHelper.getScreenWidth(context) * 0.03),
-            // Content Section
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Name
                   Text(
                     name,
                     style: TextStyle(
@@ -227,7 +265,6 @@ class _BookingListScreenState extends State<BookingListScreen> {
                     ),
                   ),
                   SizedBox(height: ResponsiveHelper.getScreenHeight(context) * 0.005),
-                  // Treatment
                   Text(
                     treatment,
                     style: TextStyle(
@@ -237,7 +274,6 @@ class _BookingListScreenState extends State<BookingListScreen> {
                     ),
                   ),
                   SizedBox(height: ResponsiveHelper.getScreenHeight(context) * 0.01),
-                  // Date and Therapist Row
                   Row(
                     children: [
                       Icon(
@@ -270,7 +306,6 @@ class _BookingListScreenState extends State<BookingListScreen> {
                     ],
                   ),
                   SizedBox(height: ResponsiveHelper.getScreenHeight(context) * 0.015),
-                  // View Booking Details Button
                   InkWell(
                     onTap: () {},
                     child: Row(

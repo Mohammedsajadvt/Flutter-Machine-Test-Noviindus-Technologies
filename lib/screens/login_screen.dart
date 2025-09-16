@@ -60,7 +60,6 @@ class LoginScreen extends StatelessWidget {
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(content: Text('Login successful!')),
                         );
-                        // TODO: Navigate to home or booking screen
                       }
                     });
                     return Column(
@@ -75,42 +74,14 @@ class LoginScreen extends StatelessWidget {
                           ),
                         ),
                         SizedBox(height: ResponsiveHelper.getScreenHeight(context) * 0.08),
-                        Row(
-                          children: [
-                            Padding(
-                              padding: const EdgeInsets.only(left: 4),
-                              child: Text(
-                                'Username',
-                                style: TextStyle(
-                                  color: const Color(0xff404040),
-                                  fontSize: ResponsiveHelper.getScreenWidth(context) * 0.04,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        SizedBox(height: ResponsiveHelper.getScreenHeight(context) * 0.01),
+                       
                         CustomTextField(
                           label: "Username",
                           hint: "Enter your username",
                           controller: usernameController,
                         ),
                         SizedBox(height: ResponsiveHelper.getScreenHeight(context) * 0.04),
-                        Row(
-                          children: [
-                            Padding(
-                              padding: const EdgeInsets.only(left: 4),
-                              child: Text(
-                                'Password',
-                                style: TextStyle(
-                                  color: const Color(0xff404040),
-                                  fontSize: ResponsiveHelper.getScreenWidth(context) * 0.04,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        SizedBox(height: ResponsiveHelper.getScreenHeight(context) * 0.01),
+                       
                         CustomTextField(
                           label: "Password",
                           hint: "Enter password",
