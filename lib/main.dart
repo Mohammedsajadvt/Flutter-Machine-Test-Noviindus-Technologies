@@ -8,6 +8,7 @@ import 'package:novindus/providers/auth_provider.dart';
 import 'package:novindus/providers/patient_provider.dart';
 import 'package:novindus/providers/branch_provider.dart';
 import 'package:novindus/providers/treatment_provider.dart';
+import 'package:novindus/core/constants/app_colors.dart';
 
 void main() {
   runApp(const MyApp());
@@ -29,18 +30,18 @@ class MyApp extends StatelessWidget {
         title: 'Flutter Demo',
         debugShowCheckedModeBanner: false,
         theme: ThemeData(
-          primaryColor: const Color(0xFF006837),
-          scaffoldBackgroundColor: Colors.white,
+          primaryColor: AppColors.primary,
+          scaffoldBackgroundColor: AppColors.background,
           appBarTheme: const AppBarTheme(
-            backgroundColor: Color(0xFF006837),
+            backgroundColor: AppColors.primary,
           ),
           colorScheme: ColorScheme.fromSwatch().copyWith(
-            primary: const Color(0xFF006837),
-            secondary: const Color(0xFF006837),
+            primary: AppColors.primary,
+            secondary: AppColors.primary,
           ),
           elevatedButtonTheme: ElevatedButtonThemeData(
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF006837),
+              backgroundColor: AppColors.primary,
             ),
           ),
         ),

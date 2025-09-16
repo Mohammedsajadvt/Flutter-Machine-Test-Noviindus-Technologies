@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:novindus/core/constants/helpers.dart';
+import 'package:novindus/core/constants/app_colors.dart';
 import 'package:novindus/core/widgets/CustomButton.dart';
 import 'package:novindus/core/widgets/CustomTextField.dart';
 import 'package:novindus/providers/auth_provider.dart';
@@ -101,7 +102,7 @@ class LoginScreen extends StatelessWidget {
                               );
                             }
                           },
-                          color: const Color(0xFF006837),
+                          color: AppColors.primary,
                         ),
                         SizedBox(height: ResponsiveHelper.getScreenHeight(context) * 0.10),
                         Text.rich(
