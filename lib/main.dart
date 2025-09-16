@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:novindus/features/auth/pages/login_screen.dart';
+import 'package:novindus/features/auth/pages/register_screen.dart';
 import 'package:novindus/features/auth/pages/splash_screen.dart';
 
 void main() {
@@ -31,9 +32,11 @@ class MyApp extends StatelessWidget {
           ),
         ),
       ),
+      initialRoute: '/',
       routes: {
           '/': (context) => const SplashScreen(),
-          '/login':(context) => const LoginScreen()
+          '/login':(context) => const LoginScreen(),
+          '/register':(context)=>  RegisterScreen()
       },
     );
   }
