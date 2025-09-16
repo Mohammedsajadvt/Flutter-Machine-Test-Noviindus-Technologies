@@ -197,7 +197,9 @@ class _BookingListScreenState extends State<BookingListScreen> {
             padding: EdgeInsets.all(ResponsiveHelper.getScreenWidth(context) * 0.04),
             color: Colors.white,
             child: ElevatedButton(
-              onPressed: () {},
+              onPressed: () {
+                Navigator.pushNamed(context, '/register');
+              },
               style: ElevatedButton.styleFrom(
                 backgroundColor: Color(0xFF006837),
                 padding: EdgeInsets.symmetric(
