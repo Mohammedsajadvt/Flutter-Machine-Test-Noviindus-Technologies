@@ -16,7 +16,20 @@ class MyApp extends StatelessWidget {
       title: 'Flutter Demo',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
+        primaryColor: const Color(0xFF006837), // Your app color
+        scaffoldBackgroundColor: Colors.white,
+        appBarTheme: const AppBarTheme(
+          backgroundColor: Color(0xFF006837),
+        ),
+        colorScheme: ColorScheme.fromSwatch().copyWith(
+          primary: const Color(0xFF006837),
+          secondary: const Color(0xFF006837),
+        ),
+        elevatedButtonTheme: ElevatedButtonThemeData(
+          style: ElevatedButton.styleFrom(
+            backgroundColor: const Color(0xFF006837),
+          ),
+        ),
       ),
       routes: {
           '/': (context) => const SplashScreen(),
