@@ -9,6 +9,9 @@ import 'package:novindus/providers/treatment_provider.dart';
 import 'package:novindus/providers/auth_provider.dart';
 import 'package:novindus/providers/patient_provider.dart';
 import 'dart:convert';
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
+import 'package:printing/printing.dart';
 
 class RegisterScreen extends StatefulWidget {
   @override
@@ -88,31 +91,85 @@ class _GenderCounterRow extends StatelessWidget {
 }
 
 class _RegisterScreenState extends State<RegisterScreen> {
+  Future<void> _generatePDF(Map<String, dynamic> data) async {
+    final pdf = pw.Document();
+
+    pdf.addPage(
+      pw.Page(
+        build: (pw.Context context) {
+          return pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              pw.Text('Patient Registration Details', style: pw.TextStyle(fontSize: 24, fontWeight: pw.FontWeight.bold)),
+              pw.SizedBox(height: 20),
+              pw.Text('Name: ${data['name']}', style: pw.TextStyle(fontSize: 16)),
+              pw.Text('Phone: ${data['phone']}', style: pw.TextStyle(fontSize: 16)),
+              pw.Text('Address: ${data['address']}', style: pw.TextStyle(fontSize: 16)),
+              pw.Text('Location: ${data['location']}', style: pw.TextStyle(fontSize: 16)),
+              pw.Text('Branch: ${data['branch']}', style: pw.TextStyle(fontSize: 16)),
+              pw.Text('Payment: ${data['payment']}', style: pw.TextStyle(fontSize: 16)),
+              pw.Text('Total Amount: ${data['total_amount']}', style: pw.TextStyle(fontSize: 16)),
+              pw.Text('Discount Amount: ${data['discount_amount']}', style: pw.TextStyle(fontSize: 16)),
+              pw.Text('Advance Amount: ${data['advance_amount']}', style: pw.TextStyle(fontSize: 16)),
+              pw.Text('Balance Amount: ${data['balance_amount']}', style: pw.TextStyle(fontSize: 16)),
+              pw.Text('Date & Time: ${data['date_nd_time']}', style: pw.TextStyle(fontSize: 16)),
+              pw.SizedBox(height: 20),
+              pw.Text('Treatments:', style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold)),
+              ..._selectedTreatments.map((t) => pw.Text('${t['name']} - Male: ${t['male']}, Female: ${t['female']}', style: pw.TextStyle(fontSize: 14))),
+            ],
+          );
+        },
+      ),
+    );
+
+    await Printing.layoutPdf(onLayout: (PdfPageFormat format) async => pdf.save());
+  }
+
   Future<void> _handleSave(AuthProvider authProvider, PatientProvider patientProvider) async {
     if (_formKey.currentState?.validate() ?? false) {
       setState(() { _isSubmitting = true; });
       try {
+        // Prepare treatment IDs and gender lists
+        final treatmentIds = _selectedTreatments.map((t) => t['id']).join(',');
+        final maleIds = _selectedTreatments.where((t) => t['male'] > 0).map((t) => t['id']).join(',');
+        final femaleIds = _selectedTreatments.where((t) => t['female'] > 0).map((t) => t['id']).join(',');
+        // Format date and time
+        String dateNdTime = '';
+        if (_treatmentDate != null && _treatmentTimeHour != null && _treatmentTimeMinute != null) {
+          final dateParts = _treatmentDate!.split('-');
+          if (dateParts.length == 3) {
+            final formattedDate = '${dateParts[2]}/${dateParts[1]}/${dateParts[0]}';
+            final hour24 = int.parse(_treatmentTimeHour!);
+            final minute = _treatmentTimeMinute!.padLeft(2, '0');
+            final period = hour24 >= 12 ? 'PM' : 'AM';
+            final hour12 = hour24 == 0 ? 12 : (hour24 > 12 ? hour24 - 12 : hour24);
+            dateNdTime = '$formattedDate-${hour12.toString().padLeft(2, '0')}:$minute $period';
+          }
+        }
         final data = {
           'name': _name ?? '',
-          'whatsapp': _whatsappNumber ?? '',
+          'excecutive': '', // Not present in form, left blank
+          'payment': _paymentOption ?? '',
+          'phone': _whatsappNumber ?? '',
           'address': _address ?? '',
-          'location': _location ?? '',
-          'branch': _branch ?? '',
-          'treatments': jsonEncode(_selectedTreatments),
           'total_amount': _totalAmount ?? '',
           'discount_amount': _discountAmount ?? '',
-          'payment_option': _paymentOption ?? '',
           'advance_amount': _advanceAmount ?? '',
           'balance_amount': _balanceAmount ?? '',
-          'treatment_date': _treatmentDate ?? '',
-          'treatment_time_hour': _treatmentTimeHour ?? '',
-          'treatment_time_minute': _treatmentTimeMinute ?? '',
+          'date_nd_time': dateNdTime,
+          'id': '',
+          'male': maleIds,
+          'female': femaleIds,
+          'branch': _branch ?? '',
+          'treatments': treatmentIds,
+          'location': _location ?? '',
         };
         final success = await patientProvider.registerPatient(data, authProvider.token!);
         if (success) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Registration submitted!')),
           );
+          await _generatePDF(data);
           Navigator.pop(context);
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -133,116 +190,600 @@ class _RegisterScreenState extends State<RegisterScreen> {
     String? selectedTreatmentId;
     int maleCount = 0;
     int femaleCount = 0;
-    showModalBottomSheet(
+
+    showDialog(
       context: context,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (context) {
-        return Padding(
-          padding: EdgeInsets.only(
-            left: 20, right: 20,
-            bottom: MediaQuery.of(context).viewInsets.bottom + 20, top: 20),
-          child: StatefulBuilder(
-            builder: (context, setModalState) {
-              final treatmentProvider = Provider.of<TreatmentProvider>(context, listen: false);
-              return Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Center(
-                    child: Container(
-                      width: 40,
-                      height: 4,
-                      margin: const EdgeInsets.only(bottom: 16),
-                      decoration: BoxDecoration(
-                        color: Colors.grey[300],
-                        borderRadius: BorderRadius.circular(2),
-                      ),
-                    ),
-                  ),
-                  const Center(
-                    child: Text(
-                      'Choose Treatment',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 20,
-                        color: Color(0xFF404040),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  DropdownButtonFormField<String>(
-                    decoration: InputDecoration(
-                      labelText: 'Add Treatment',
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                        borderSide: BorderSide(color: Colors.grey.shade300, width: 1),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                        borderSide: const BorderSide(color: Color(0xFF006837), width: 1.5),
-                      ),
-                    ),
-                    value: selectedTreatmentId,
-                    items: treatmentProvider.treatments.map((treatment) {
-                      return DropdownMenuItem<String>(
-                        value: treatment.id,
-                        child: Text(treatment.name),
-                      );
-                    }).toList(),
-                    onChanged: (value) {
-                      setModalState(() {
-                        selectedTreatmentId = value;
-                      });
-                    },
-                  ),
-                  const SizedBox(height: 24),
-                  _GenderCounterRow(
-                    label: 'Male',
-                    count: maleCount,
-                    onAdd: () => setModalState(() => maleCount++),
-                    onRemove: () { if (maleCount > 0) setModalState(() => maleCount--); },
-                  ),
-                  const SizedBox(height: 16),
-                  _GenderCounterRow(
-                    label: 'Female',
-                    count: femaleCount,
-                    onAdd: () => setModalState(() => femaleCount++),
-                    onRemove: () { if (femaleCount > 0) setModalState(() => femaleCount--); },
-                  ),
-                  const SizedBox(height: 32),
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF0F5132),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
+      builder: (BuildContext context) {
+        return Dialog(
+          backgroundColor: Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          elevation: 8,
+          child: Container(
+            width: MediaQuery.of(context).size.width * 0.9,
+            constraints: const BoxConstraints(maxWidth: 350),
+            child: StatefulBuilder(
+              builder: (context, setModalState) {
+                final treatmentProvider = Provider.of<TreatmentProvider>(context, listen: false);
+                return Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Modal Header
+                      const Text(
+                        'Choose Treatment',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF1F2937),
                         ),
-                        padding: const EdgeInsets.symmetric(vertical: 16),
                       ),
-                      onPressed: selectedTreatmentId != null && (maleCount > 0 || femaleCount > 0)
-                          ? () {
-                              final treatment = treatmentProvider.treatments.firstWhere((t) => t.id == selectedTreatmentId);
-                              setState(() {
-                                _selectedTreatments.add({
-                                  'id': selectedTreatmentId,
-                                  'name': treatment.name,
-                                  'male': maleCount,
-                                  'female': femaleCount,
-                                });
+                      const SizedBox(height: 20),
+
+                      // Treatment Selection Section
+                      Container(
+                        constraints: const BoxConstraints(maxHeight: 200),
+                        child: SingleChildScrollView(
+                          child: DropdownButtonFormField<String>(
+                            decoration: InputDecoration(
+                              hintText: 'Add Treatment',
+                              filled: true,
+                              fillColor: const Color(0xFFF9FAFB),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8),
+                                borderSide: const BorderSide(color: Color(0xFFE5E7EB), width: 1),
+                              ),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8),
+                                borderSide: const BorderSide(color: Color(0xFFE5E7EB), width: 1),
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8),
+                                borderSide: const BorderSide(color: Color(0xFF10B981), width: 1.5),
+                              ),
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                            ),
+                            value: selectedTreatmentId,
+                            icon: const Icon(Icons.keyboard_arrow_down, color: Color(0xFF6B7280)),
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w500,
+                              color: Color(0xFF374151),
+                            ),
+                            isExpanded: true,
+                            menuMaxHeight: 200,
+                            items: treatmentProvider.treatments.map((treatment) {
+                              return DropdownMenuItem<String>(
+                                value: treatment.id,
+                                child: Container(
+                                  constraints: const BoxConstraints(maxWidth: 280),
+                                  child: Text(
+                                    treatment.name,
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              );
+                            }).toList(),
+                            onChanged: (value) {
+                              setModalState(() {
+                                selectedTreatmentId = value;
                               });
-                              Navigator.pop(context);
-                            }
-                          : null,
-                      child: const Text('Save', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
-                    ),
+                            },
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+
+                      // Patient Counter Section
+                      const Text(
+                        'Add Patients',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                          color: Color(0xFF374151),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+
+                      // Male Counter Row
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text(
+                            'Male',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w500,
+                              color: Color(0xFF374151),
+                            ),
+                          ),
+                          Row(
+                            children: [
+                              // Decrease Button
+                              InkWell(
+                                onTap: maleCount > 0
+                                    ? () => setModalState(() => maleCount--)
+                                    : null,
+                                borderRadius: BorderRadius.circular(16),
+                                child: Container(
+                                  width: 32,
+                                  height: 32,
+                                  decoration: BoxDecoration(
+                                    color: maleCount > 0
+                                        ? const Color(0xFF059669)
+                                        : Colors.grey[300],
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: const Icon(
+                                    Icons.remove,
+                                    color: Colors.white,
+                                    size: 16,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              // Count Display
+                              SizedBox(
+                                width: 40,
+                                child: Text(
+                                  '$maleCount',
+                                  textAlign: TextAlign.center,
+                                  style: const TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600,
+                                    color: Color(0xFF374151),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              // Increase Button
+                              InkWell(
+                                onTap: () => setModalState(() => maleCount++),
+                                borderRadius: BorderRadius.circular(16),
+                                child: Container(
+                                  width: 32,
+                                  height: 32,
+                                  decoration: const BoxDecoration(
+                                    color: Color(0xFF059669),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: const Icon(
+                                    Icons.add,
+                                    color: Colors.white,
+                                    size: 16,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+
+                      // Female Counter Row
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text(
+                            'Female',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w500,
+                              color: Color(0xFF374151),
+                            ),
+                          ),
+                          Row(
+                            children: [
+                              // Decrease Button
+                              InkWell(
+                                onTap: femaleCount > 0
+                                    ? () => setModalState(() => femaleCount--)
+                                    : null,
+                                borderRadius: BorderRadius.circular(16),
+                                child: Container(
+                                  width: 32,
+                                  height: 32,
+                                  decoration: BoxDecoration(
+                                    color: femaleCount > 0
+                                        ? const Color(0xFF059669)
+                                        : Colors.grey[300],
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: const Icon(
+                                    Icons.remove,
+                                    color: Colors.white,
+                                    size: 16,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              // Count Display
+                              SizedBox(
+                                width: 40,
+                                child: Text(
+                                  '$femaleCount',
+                                  textAlign: TextAlign.center,
+                                  style: const TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600,
+                                    color: Color(0xFF374151),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              // Increase Button
+                              InkWell(
+                                onTap: () => setModalState(() => femaleCount++),
+                                borderRadius: BorderRadius.circular(16),
+                                child: Container(
+                                  width: 32,
+                                  height: 32,
+                                  decoration: const BoxDecoration(
+                                    color: Color(0xFF059669),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: const Icon(
+                                    Icons.add,
+                                    color: Colors.white,
+                                    size: 16,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 24),
+
+                      // Save Button
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton(
+                          onPressed: selectedTreatmentId != null && (maleCount > 0 || femaleCount > 0)
+                              ? () {
+                                  final treatment = treatmentProvider.treatments.firstWhere((t) => t.id == selectedTreatmentId);
+                                  setState(() {
+                                    _selectedTreatments.add({
+                                      'id': selectedTreatmentId,
+                                      'name': treatment.name,
+                                      'male': maleCount,
+                                      'female': femaleCount,
+                                    });
+                                  });
+                                  Navigator.pop(context);
+                                }
+                              : null,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: selectedTreatmentId != null && (maleCount > 0 || femaleCount > 0)
+                                ? const Color(0xFF059669)
+                                : Colors.grey,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            elevation: 0,
+                          ),
+                          child: const Text(
+                            'Save',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                ],
-              );
-            },
+                );
+              },
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  void _editTreatment(int index, Map<String, dynamic> treatment) {
+    String? selectedTreatmentId = treatment['id'];
+    int maleCount = treatment['male'];
+    int femaleCount = treatment['female'];
+
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return Dialog(
+          backgroundColor: Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          elevation: 8,
+          child: Container(
+            width: MediaQuery.of(context).size.width * 0.9,
+            constraints: const BoxConstraints(maxWidth: 350),
+            child: StatefulBuilder(
+              builder: (context, setModalState) {
+                final treatmentProvider = Provider.of<TreatmentProvider>(context, listen: false);
+                return Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Modal Header
+                      const Text(
+                        'Edit Treatment',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF1F2937),
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+
+                      // Treatment Selection Section
+                      Container(
+                        constraints: const BoxConstraints(maxHeight: 200),
+                        child: SingleChildScrollView(
+                          child: DropdownButtonFormField<String>(
+                            decoration: InputDecoration(
+                              hintText: 'Edit Treatment',
+                              filled: true,
+                              fillColor: const Color(0xFFF9FAFB),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8),
+                                borderSide: const BorderSide(color: Color(0xFFE5E7EB), width: 1),
+                              ),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8),
+                                borderSide: const BorderSide(color: Color(0xFFE5E7EB), width: 1),
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8),
+                                borderSide: const BorderSide(color: Color(0xFF10B981), width: 1.5),
+                              ),
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                            ),
+                            value: selectedTreatmentId,
+                            icon: const Icon(Icons.keyboard_arrow_down, color: Color(0xFF6B7280)),
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w500,
+                              color: Color(0xFF374151),
+                            ),
+                            isExpanded: true,
+                            menuMaxHeight: 200,
+                            items: treatmentProvider.treatments.map((treatment) {
+                              return DropdownMenuItem<String>(
+                                value: treatment.id,
+                                child: Container(
+                                  constraints: const BoxConstraints(maxWidth: 280),
+                                  child: Text(
+                                    treatment.name,
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              );
+                            }).toList(),
+                            onChanged: (value) {
+                              setModalState(() {
+                                selectedTreatmentId = value;
+                              });
+                            },
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+
+                      // Patient Counter Section
+                      const Text(
+                        'Add Patients',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                          color: Color(0xFF374151),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+
+                      // Male Counter Row
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text(
+                            'Male',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w500,
+                              color: Color(0xFF374151),
+                            ),
+                          ),
+                          Row(
+                            children: [
+                              // Decrease Button
+                              InkWell(
+                                onTap: maleCount > 0
+                                    ? () => setModalState(() => maleCount--)
+                                    : null,
+                                borderRadius: BorderRadius.circular(16),
+                                child: Container(
+                                  width: 32,
+                                  height: 32,
+                                  decoration: BoxDecoration(
+                                    color: maleCount > 0
+                                        ? const Color(0xFF059669)
+                                        : Colors.grey[300],
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: const Icon(
+                                    Icons.remove,
+                                    color: Colors.white,
+                                    size: 16,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              // Count Display
+                              SizedBox(
+                                width: 40,
+                                child: Text(
+                                  '$maleCount',
+                                  textAlign: TextAlign.center,
+                                  style: const TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600,
+                                    color: Color(0xFF374151),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              // Increase Button
+                              InkWell(
+                                onTap: () => setModalState(() => maleCount++),
+                                borderRadius: BorderRadius.circular(16),
+                                child: Container(
+                                  width: 32,
+                                  height: 32,
+                                  decoration: const BoxDecoration(
+                                    color: Color(0xFF059669),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: const Icon(
+                                    Icons.add,
+                                    color: Colors.white,
+                                    size: 16,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+
+                      // Female Counter Row
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text(
+                            'Female',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w500,
+                              color: Color(0xFF374151),
+                            ),
+                          ),
+                          Row(
+                            children: [
+                              // Decrease Button
+                              InkWell(
+                                onTap: femaleCount > 0
+                                    ? () => setModalState(() => femaleCount--)
+                                    : null,
+                                borderRadius: BorderRadius.circular(16),
+                                child: Container(
+                                  width: 32,
+                                  height: 32,
+                                  decoration: BoxDecoration(
+                                    color: femaleCount > 0
+                                        ? const Color(0xFF059669)
+                                        : Colors.grey[300],
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: const Icon(
+                                    Icons.remove,
+                                    color: Colors.white,
+                                    size: 16,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              // Count Display
+                              SizedBox(
+                                width: 40,
+                                child: Text(
+                                  '$femaleCount',
+                                  textAlign: TextAlign.center,
+                                  style: const TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600,
+                                    color: Color(0xFF374151),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              // Increase Button
+                              InkWell(
+                                onTap: () => setModalState(() => femaleCount++),
+                                borderRadius: BorderRadius.circular(16),
+                                child: Container(
+                                  width: 32,
+                                  height: 32,
+                                  decoration: const BoxDecoration(
+                                    color: Color(0xFF059669),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: const Icon(
+                                    Icons.add,
+                                    color: Colors.white,
+                                    size: 16,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 24),
+
+                      // Update Button
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton(
+                          onPressed: selectedTreatmentId != null && (maleCount > 0 || femaleCount > 0)
+                              ? () {
+                                  final treatment = treatmentProvider.treatments.firstWhere((t) => t.id == selectedTreatmentId);
+                                  setState(() {
+                                    _selectedTreatments[index] = {
+                                      'id': selectedTreatmentId,
+                                      'name': treatment.name,
+                                      'male': maleCount,
+                                      'female': femaleCount,
+                                    };
+                                  });
+                                  Navigator.pop(context);
+                                }
+                              : null,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: selectedTreatmentId != null && (maleCount > 0 || femaleCount > 0)
+                                ? const Color(0xFF059669)
+                                : Colors.grey,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            elevation: 0,
+                          ),
+                          child: const Text(
+                            'Update',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
           ),
         );
       },
@@ -360,34 +901,42 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     ),
                   ),
                   const SizedBox(height: 8),
-                  DropdownButtonFormField<String>(
-                    decoration: InputDecoration(
-                      hintText: 'Choose your location',
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                        borderSide: const BorderSide(color: Color(0xFFBDBDBD), width: 1.2),
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                        borderSide: const BorderSide(color: Color(0xFFBDBDBD), width: 1.2),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                        borderSide: const BorderSide(color: Color(0xFF006837), width: 1.5),
-                      ),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16)
-                    ),
-                    icon: const Icon(Icons.keyboard_arrow_down, color: Color(0xFF006837)),
-                    items: ['Location 1', 'Location 2', 'Location 3'].map((String value) {
-                      return DropdownMenuItem<String>(
-                        value: value,
-                        child: Text(value, style: const TextStyle(color: Color(0xFF404040)))
+                  Consumer<BranchProvider>(
+                    builder: (context, branchProvider, _) {
+                      if (branchProvider.isLoading) {
+                        return const Center(child: CircularProgressIndicator());
+                      }
+                      final locations = branchProvider.branches.map((b) => b.location).toSet().toList();
+                      return DropdownButtonFormField<String>(
+                        decoration: InputDecoration(
+                          hintText: 'Choose your location',
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide: const BorderSide(color: Color(0xFFBDBDBD), width: 1.2),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide: const BorderSide(color: Color(0xFFBDBDBD), width: 1.2),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide: const BorderSide(color: Color(0xFF006837), width: 1.5),
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16)
+                        ),
+                        icon: const Icon(Icons.keyboard_arrow_down, color: Color(0xFF006837)),
+                        items: locations.map((String value) {
+                          return DropdownMenuItem<String>(
+                            value: value,
+                            child: Text(value, style: const TextStyle(color: Color(0xFF404040)))
+                          );
+                        }).toList(),
+                        onChanged: (value) {
+                          setState(() {
+                            _location = value;
+                          });
+                        },
                       );
-                    }).toList(),
-                    onChanged: (value) {
-                      setState(() {
-                        _location = value;
-                      });
                     },
                   ),
                 ],
@@ -453,7 +1002,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const Text(
-                        'Selected Treatments',
+                        'Treatments',
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 16,
@@ -461,32 +1010,169 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         ),
                       ),
                       const SizedBox(height: 8),
-                      ..._selectedTreatments.map((t) => Container(
-                        margin: const EdgeInsets.only(bottom: 8),
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                        decoration: BoxDecoration(
-                          color: Colors.grey[100],
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: Colors.grey.shade300),
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Expanded(child: Text(t['name'], style: const TextStyle(fontSize: 15, color: Color(0xFF404040)))),
-                            Row(
-                              children: [
-                                const Icon(Icons.male, color: Color(0xFF006837), size: 20),
-                                const SizedBox(width: 2),
-                                Text('${t['male']}', style: const TextStyle(fontWeight: FontWeight.bold)),
-                                const SizedBox(width: 12),
-                                const Icon(Icons.female, color: Color(0xFF006837), size: 20),
-                                const SizedBox(width: 2),
-                                Text('${t['female']}', style: const TextStyle(fontWeight: FontWeight.bold)),
-                              ],
-                            ),
-                          ],
-                        ),
-                      )),
+                      ..._selectedTreatments.asMap().entries.map((entry) {
+                        final i = entry.key;
+                        final t = entry.value;
+                        return Container(
+                          margin: const EdgeInsets.only(bottom: 12),
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: Colors.grey.shade200),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.grey.withOpacity(0.1),
+                                spreadRadius: 1,
+                                blurRadius: 3,
+                                offset: const Offset(0, 1),
+                              ),
+                            ],
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              // Treatment header row
+                              Row(
+                                children: [
+                              // Treatment name with numbering
+                                  Expanded(
+                                    child: Tooltip(
+                                      message: '${t['name']}\nDuration: ${t['duration']}\nPrice: ₹${t['price']}',
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            '${i + 1}. ${t['name']}',
+                                            style: const TextStyle(
+                                              fontSize: 16,
+                                              color: Color(0xFF404040),
+                                              fontWeight: FontWeight.w500,
+                                            ),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                          const SizedBox(height: 2),
+                                          Text(
+                                            '${t['duration']} • ₹${t['price']}',
+                                            style: const TextStyle(
+                                              fontSize: 12,
+                                              color: Color(0xFF6B7280),
+                                              fontWeight: FontWeight.w400,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                  // Delete button
+                                  InkWell(
+                                    onTap: () {
+                                      setState(() {
+                                        _selectedTreatments.removeAt(i);
+                                      });
+                                    },
+                                    borderRadius: BorderRadius.circular(12),
+                                    child: Container(
+                                      width: 24,
+                                      height: 24,
+                                      decoration: const BoxDecoration(
+                                        color: Color(0xFFEF4444),
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: const Icon(
+                                        Icons.close,
+                                        color: Colors.white,
+                                        size: 16,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              // Counters and edit icon row
+                              Row(
+                                children: [
+                                  // Male and Female counters
+                                  if (t['male'] > 0)
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                      margin: const EdgeInsets.only(right: 8),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFF22C55E),
+                                        borderRadius: BorderRadius.circular(20),
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          const Text(
+                                            'Male',
+                                            style: TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 14,
+                                              fontWeight: FontWeight.w500,
+                                            ),
+                                          ),
+                                          const SizedBox(width: 4),
+                                          Text(
+                                            '${t['male']}',
+                                            style: const TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 14,
+                                              fontWeight: FontWeight.w500,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  if (t['female'] > 0)
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                      margin: const EdgeInsets.only(right: 8),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFF22C55E),
+                                        borderRadius: BorderRadius.circular(20),
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          const Text(
+                                            'Female',
+                                            style: TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 14,
+                                              fontWeight: FontWeight.w500,
+                                            ),
+                                          ),
+                                          const SizedBox(width: 4),
+                                          Text(
+                                            '${t['female']}',
+                                            style: const TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 14,
+                                              fontWeight: FontWeight.w500,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  const Spacer(),
+                                  // Edit icon
+                                  IconButton(
+                                    icon: const Icon(
+                                      Icons.edit,
+                                      color: Color(0xFF6B7280),
+                                      size: 20,
+                                    ),
+                                    onPressed: () => _editTreatment(i, t),
+                                    tooltip: 'Edit',
+                                    padding: EdgeInsets.zero,
+                                    constraints: const BoxConstraints(),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        );
+                      }),
                     ],
                   ),
                 ),
@@ -495,7 +1181,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 child: CustomButton(
                   text: '+ Add Treatments',
                   onPressed: () => _showTreatmentModal(context),
-                  color: Color(0xFF006837),
+                  color: Color(0xFF0F5132),
                   textColor: Colors.white,
                 ),
               ),
