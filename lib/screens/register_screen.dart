@@ -320,6 +320,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   ],
                 ),
               ),
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: Divider(
+                  color: Color(0xFF404040).withOpacity(0.15),
+                  thickness: 1.2,
+                  height: 1,
+                ),
+              ),
               SizedBox(height: 20),
 
               // --- Personal Information ---
@@ -523,9 +531,18 @@ class _RegisterScreenState extends State<RegisterScreen> {
               ),
               Row(
                 children: [
+                  SizedBox(width: ResponsiveHelper.getScreenWidth(context) * 0.050),
                   Expanded(
                     child: RadioListTile<String>(
-                      title: Text('Cash', style: TextStyle(color: Color(0xFF404040))),
+                      contentPadding: EdgeInsets.zero,
+                      title: Tooltip(
+                        message: 'Cash',
+                        child: Text('Cash',
+                          style: TextStyle(color: Color(0xFF404040)),
+                          softWrap: false,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
                       value: 'Cash',
                       groupValue: _paymentOption,
                       activeColor: Color(0xFF006837),
@@ -533,12 +550,20 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         setState(() {
                           _paymentOption = value;
                         });
-                      }
-                    )
+                      },
+                    ),
                   ),
                   Expanded(
                     child: RadioListTile<String>(
-                      title: Text('Card', style: TextStyle(color: Color(0xFF404040))),
+                      contentPadding: EdgeInsets.zero,
+                      title: Tooltip(
+                        message: 'Card',
+                        child: Text('Card',
+                          style: TextStyle(color: Color(0xFF404040)),
+                          softWrap: false,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
                       value: 'Card',
                       groupValue: _paymentOption,
                       activeColor: Color(0xFF006837),
@@ -546,12 +571,20 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         setState(() {
                           _paymentOption = value;
                         });
-                      }
-                    )
+                      },
+                    ),
                   ),
                   Expanded(
                     child: RadioListTile<String>(
-                      title: Text('UPI', style: TextStyle(color: Color(0xFF404040))),
+                      contentPadding: EdgeInsets.zero,
+                      title: Tooltip(
+                        message: 'UPI',
+                        child: Text('UPI',
+                          style: TextStyle(color: Color(0xFF404040)),
+                          softWrap: false,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
                       value: 'UPI',
                       groupValue: _paymentOption,
                       activeColor: Color(0xFF006837),
@@ -559,8 +592,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         setState(() {
                           _paymentOption = value;
                         });
-                      }
-                    )
+                      },
+                    ),
                   ),
                 ],
               ),
