@@ -12,15 +12,29 @@ class BookingListScreen extends StatefulWidget {
 }
 
 class _BookingListScreenState extends State<BookingListScreen> {
-  String _sortBy = 'Date';
-  String _searchQuery = '';
-  String _searchInput = '';
+  final TextEditingController _searchController = TextEditingController();
+  DateTime? _lastSearch;
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _fetchPatients();
+    });
+  }
+
+  void _debouncedSearch(BuildContext context, String value) {
+    final patientProvider = Provider.of<PatientProvider>(context, listen: false);
+    _lastSearch = DateTime.now();
+    Future.delayed(const Duration(milliseconds: 350), () {
+      if (_lastSearch != null && DateTime.now().difference(_lastSearch!) >= const Duration(milliseconds: 350)) {
+        patientProvider.updateSearchQuery(value);
+      }
     });
   }
 
@@ -66,22 +80,34 @@ class _BookingListScreenState extends State<BookingListScreen> {
                           border: Border.all(color: Colors.grey[300]!),
                           borderRadius: BorderRadius.circular(ResponsiveHelper.getScreenWidth(context) * 0.02),
                         ),
-                        child: TextField(
-                          onChanged: (value) {
-                            _searchInput = value;
+                        child: Consumer<PatientProvider>(
+                          builder: (context, patientProvider, _) {
+                            return TextField(
+                              controller: _searchController,
+                              onChanged: (value) => _debouncedSearch(context, value),
+                              decoration: InputDecoration(
+                                hintText: 'Search for treatments',
+                                hintStyle: TextStyle(
+                                  color: Colors.grey[500],
+                                  fontSize: ResponsiveHelper.getScreenWidth(context) * 0.035,
+                                ),
+                                border: InputBorder.none,
+                                contentPadding: EdgeInsets.symmetric(
+                                  horizontal: ResponsiveHelper.getScreenWidth(context) * 0.04,
+                                  vertical: ResponsiveHelper.getScreenHeight(context) * 0.015,
+                                ),
+                                suffixIcon: patientProvider.searchQuery.isNotEmpty
+                                    ? IconButton(
+                                        icon: Icon(Icons.clear, color: Colors.grey[500]),
+                                        onPressed: () {
+                                          _searchController.clear();
+                                          patientProvider.updateSearchQuery('');
+                                        },
+                                      )
+                                    : null,
+                              ),
+                            );
                           },
-                          decoration: InputDecoration(
-                            hintText: 'Search for treatments',
-                            hintStyle: TextStyle(
-                              color: Colors.grey[500],
-                              fontSize: ResponsiveHelper.getScreenWidth(context) * 0.035,
-                            ),
-                            border: InputBorder.none,
-                            contentPadding: EdgeInsets.symmetric(
-                              horizontal: ResponsiveHelper.getScreenWidth(context) * 0.04,
-                              vertical: ResponsiveHelper.getScreenHeight(context) * 0.015,
-                            ),
-                          ),
                         ),
                       ),
                     ),
@@ -93,9 +119,8 @@ class _BookingListScreenState extends State<BookingListScreen> {
                       child: CustomButton(
                         text: 'Search',
                         onPressed: () {
-                          setState(() {
-                            _searchQuery = _searchInput;
-                          });
+                          final patientProvider = Provider.of<PatientProvider>(context, listen: false);
+                          patientProvider.updateSearchQuery(_searchController.text);
                         },
                         color: Color(0xFF006837),
                         textColor: Colors.white,
@@ -126,7 +151,7 @@ class _BookingListScreenState extends State<BookingListScreen> {
                       ),
                       child: DropdownButtonHideUnderline(
                         child: DropdownButton<String>(
-                          value: _sortBy,
+                          value: Provider.of<PatientProvider>(context).sortBy,
                           icon: Icon(
                             Icons.keyboard_arrow_down,
                             size: ResponsiveHelper.getScreenWidth(context) * 0.045,
@@ -142,9 +167,9 @@ class _BookingListScreenState extends State<BookingListScreen> {
                             );
                           }).toList(),
                           onChanged: (value) {
-                            setState(() {
-                              _sortBy = value!;
-                            });
+                            if (value != null) {
+                              Provider.of<PatientProvider>(context, listen: false).updateSortBy(value);
+                            }
                           },
                         ),
                       ),
@@ -160,24 +185,7 @@ class _BookingListScreenState extends State<BookingListScreen> {
                 if (patientProvider.isLoading) {
                   return Center(child: CircularProgressIndicator());
                 }
-                List filtered = patientProvider.patients.where((p) {
-                  final name = p.name.toLowerCase();
-                  final treatmentNames = p.patientDetails.map((d) => d.treatmentName).join(', ').toLowerCase();
-                  return name.contains(_searchQuery.toLowerCase()) || treatmentNames.contains(_searchQuery.toLowerCase());
-                }).toList();
-
-                // Sort the filtered list based on dropdown
-                if (_sortBy == 'Name') {
-                  filtered.sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
-                } else if (_sortBy == 'Date') {
-                  filtered.sort((a, b) => b.dateNdTime.compareTo(a.dateNdTime)); // Newest first
-                } else if (_sortBy == 'Treatment') {
-                  filtered.sort((a, b) {
-                    final aTreat = a.patientDetails.map((d) => d.treatmentName).join(', ');
-                    final bTreat = b.patientDetails.map((d) => d.treatmentName).join(', ');
-                    return aTreat.toLowerCase().compareTo(bTreat.toLowerCase());
-                  });
-                }
+                final filtered = patientProvider.filteredPatients;
                 if (filtered.isEmpty) {
                   return Center(
                     child: Column(
@@ -341,7 +349,7 @@ class _BookingListScreenState extends State<BookingListScreen> {
                   InkWell(
                     onTap: () {},
                     child: Row(
-                      mainAxisSize: MainAxisSize.min,
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text(
                           'View Booking details',
@@ -352,7 +360,6 @@ class _BookingListScreenState extends State<BookingListScreen> {
                             decoration: TextDecoration.underline,
                           ),
                         ),
-                        SizedBox(width: ResponsiveHelper.getScreenWidth(context) * 0.015),
                         Icon(
                           Icons.arrow_forward_ios,
                           size: ResponsiveHelper.getScreenWidth(context) * 0.03,
