@@ -9,7 +9,7 @@ class PatientService {
     final response = await http.get(url, headers: {'Authorization': 'Bearer $token'});
     if (response.statusCode == 200) {
       final data = json.decode(response.body);
-      final list = data['patients'] as List?;
+      final list = data['patient'] as List?;
       if (list == null) return [];
       return list.map((e) => Patient.fromJson(e)).toList();
     } else {

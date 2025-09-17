@@ -3,12 +3,12 @@ import 'package:http/http.dart' as http;
 import 'package:novindus/core/constants/app_constants.dart';
 
 class AuthService {
-  Future<dynamic> login(String email, String password) async {
+  Future<dynamic> login(String username, String password) async {
     final url = Uri.parse(AppConstants.baseUrl + AppConstants.loginEndpoint);
     final response = await http.post(
       url,
       body: {
-        'email': email,
+        'username': username,
         'password': password,
       },
     );

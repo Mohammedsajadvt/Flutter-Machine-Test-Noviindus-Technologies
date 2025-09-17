@@ -14,6 +14,7 @@ class BookingListScreen extends StatefulWidget {
 class _BookingListScreenState extends State<BookingListScreen> {
   String _sortBy = 'Date';
   String _searchQuery = '';
+  String _searchInput = '';
 
   @override
   void initState() {
@@ -67,9 +68,7 @@ class _BookingListScreenState extends State<BookingListScreen> {
                         ),
                         child: TextField(
                           onChanged: (value) {
-                            setState(() {
-                              _searchQuery = value;
-                            });
+                            _searchInput = value;
                           },
                           decoration: InputDecoration(
                             hintText: 'Search for treatments',
@@ -87,22 +86,19 @@ class _BookingListScreenState extends State<BookingListScreen> {
                       ),
                     ),
                     SizedBox(width: ResponsiveHelper.getScreenWidth(context) * 0.03),
-                    Container(
-                      width: ResponsiveHelper.getScreenWidth(context) * 0.12,
+                    SizedBox(width: ResponsiveHelper.getScreenWidth(context) * 0.01),
+                    SizedBox(
+                      width: ResponsiveHelper.getScreenWidth(context) * 0.18,
                       height: ResponsiveHelper.getScreenHeight(context) * 0.06,
-                      decoration: BoxDecoration(
-                        color: Color(0xFF006837),
-                        borderRadius: BorderRadius.circular(ResponsiveHelper.getScreenWidth(context) * 0.02),
-                      ),
-                      child: MaterialButton(
+                      child: CustomButton(
+                        text: 'Search',
                         onPressed: () {
-                          setState(() {});
+                          setState(() {
+                            _searchQuery = _searchInput;
+                          });
                         },
-                        child: Icon(
-                          Icons.search,
-                          color: Colors.white,
-                          size: ResponsiveHelper.getScreenWidth(context) * 0.05,
-                        ),
+                        color: Color(0xFF006837),
+                        textColor: Colors.white,
                       ),
                     ),
                   ],
@@ -120,36 +116,37 @@ class _BookingListScreenState extends State<BookingListScreen> {
                     ),
                     Spacer(),
                     Container(
+                      height: ResponsiveHelper.getScreenHeight(context) * 0.06,
                       padding: EdgeInsets.symmetric(
                         horizontal: ResponsiveHelper.getScreenWidth(context) * 0.03,
-                        vertical: ResponsiveHelper.getScreenHeight(context) * 0.01,
                       ),
                       decoration: BoxDecoration(
                         border: Border.all(color: Colors.grey[300]!),
-                        borderRadius: BorderRadius.circular(ResponsiveHelper.getScreenWidth(context) * 0.015),
+                        borderRadius: BorderRadius.circular(ResponsiveHelper.getScreenWidth(context) * 0.02),
                       ),
-                      child: DropdownButton<String>(
-                        value: _sortBy,
-                        underline: SizedBox(),
-                        icon: Icon(
-                          Icons.keyboard_arrow_down,
-                          size: ResponsiveHelper.getScreenWidth(context) * 0.045,
+                      child: DropdownButtonHideUnderline(
+                        child: DropdownButton<String>(
+                          value: _sortBy,
+                          icon: Icon(
+                            Icons.keyboard_arrow_down,
+                            size: ResponsiveHelper.getScreenWidth(context) * 0.045,
+                          ),
+                          style: TextStyle(
+                            color: Colors.black87,
+                            fontSize: ResponsiveHelper.getScreenWidth(context) * 0.035,
+                          ),
+                          items: ['Date', 'Name', 'Treatment'].map((String value) {
+                            return DropdownMenuItem(
+                              value: value,
+                              child: Text(value),
+                            );
+                          }).toList(),
+                          onChanged: (value) {
+                            setState(() {
+                              _sortBy = value!;
+                            });
+                          },
                         ),
-                        style: TextStyle(
-                          color: Colors.black87,
-                          fontSize: ResponsiveHelper.getScreenWidth(context) * 0.035,
-                        ),
-                        items: ['Date', 'Name', 'Treatment'].map((String value) {
-                          return DropdownMenuItem(
-                            value: value,
-                            child: Text(value),
-                          );
-                        }).toList(),
-                        onChanged: (value) {
-                          setState(() {
-                            _sortBy = value!;
-                          });
-                        },
                       ),
                     ),
                   ],
@@ -165,11 +162,43 @@ class _BookingListScreenState extends State<BookingListScreen> {
                 }
                 List filtered = patientProvider.patients.where((p) {
                   final name = p.name.toLowerCase();
-                  final treatment = p.treatments.join(', ').toLowerCase();
-                  return name.contains(_searchQuery.toLowerCase()) || treatment.contains(_searchQuery.toLowerCase());
+                  final treatmentNames = p.patientDetails.map((d) => d.treatmentName).join(', ').toLowerCase();
+                  return name.contains(_searchQuery.toLowerCase()) || treatmentNames.contains(_searchQuery.toLowerCase());
                 }).toList();
+
+                // Sort the filtered list based on dropdown
+                if (_sortBy == 'Name') {
+                  filtered.sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+                } else if (_sortBy == 'Date') {
+                  filtered.sort((a, b) => b.dateNdTime.compareTo(a.dateNdTime)); // Newest first
+                } else if (_sortBy == 'Treatment') {
+                  filtered.sort((a, b) {
+                    final aTreat = a.patientDetails.map((d) => d.treatmentName).join(', ');
+                    final bTreat = b.patientDetails.map((d) => d.treatmentName).join(', ');
+                    return aTreat.toLowerCase().compareTo(bTreat.toLowerCase());
+                  });
+                }
                 if (filtered.isEmpty) {
-                  return Center(child: Text('No bookings found.'));
+                  return Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.account_circle,
+                          size: 80,
+                          color: Colors.grey[400],
+                        ),
+                        SizedBox(height: 16),
+                        Text(
+                          'No bookings found.',
+                          style: TextStyle(
+                            fontSize: 18,
+                            color: Colors.grey[600],
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
                 }
                 return RefreshIndicator(
                   onRefresh: _fetchPatients,
@@ -178,13 +207,14 @@ class _BookingListScreenState extends State<BookingListScreen> {
                     itemCount: filtered.length,
                     itemBuilder: (context, index) {
                       final patient = filtered[index];
+                      final treatmentNames = patient.patientDetails.map((d) => d.treatmentName).join(', ');
                       return _buildBookingItem(
                         context,
                         index + 1,
                         patient.name,
-                        patient.treatments.isNotEmpty ? patient.treatments.join(', ') : '-',
+                        treatmentNames.isNotEmpty ? treatmentNames : '-',
                         patient.dateNdTime,
-                        patient.excecutive,
+                        patient.user,
                       );
                     },
                   ),
